@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "pnpm --filter @primarywms/db generate",
     "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter @primarywms/db generate && pnpm --filter web build",
+    "build": "pnpm --filter @primarywms/db generate && pnpm --filter @primarywms/db push && pnpm --filter web build",
     "db:generate": "pnpm --filter @primarywms/db generate",
     "db:migrate": "pnpm --filter @primarywms/db migrate",
     "db:push": "pnpm --filter @primarywms/db push",
