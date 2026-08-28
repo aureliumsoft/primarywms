@@ -1,0 +1,28 @@
+{
+  "name": "@primarywms/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "push": "prisma db push",
+    "studio": "prisma studio",
+    "seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.13.0",
+    "argon2": "^0.41.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.13.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.2"
+  },
+  "prisma": {
+    "seed": "tsx src/seed.ts"
+  }
+}

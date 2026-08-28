@@ -1,0 +1,9 @@
+{
+  "name": "mobile",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Expo client — Phase 1 step 9 (after the web app).",
+  "scripts": {
+    "placeholder": "echo Expo app will be added after the web Phase 1 core ships"
+  }
+}

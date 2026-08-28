@@ -1,0 +1,24 @@
+{
+  "name": "primarywms",
+  "private": true,
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter @primarywms/db generate && pnpm --filter web build",
+    "db:generate": "pnpm --filter @primarywms/db generate",
+    "db:migrate": "pnpm --filter @primarywms/db migrate",
+    "db:push": "pnpm --filter @primarywms/db push",
+    "db:seed": "pnpm --filter @primarywms/db seed",
+    "db:studio": "pnpm --filter @primarywms/db studio"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "argon2",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild"
+    ]
+  }
+}
+

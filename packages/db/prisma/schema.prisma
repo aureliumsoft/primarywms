@@ -1,0 +1,913 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  DEACTIVATED
+}
+
+enum RoleKind {
+  SUPER_ADMIN
+  ADMIN
+  TEAM_MEMBER
+  SCANNER
+  CUSTOM
+}
+
+enum FolderGrant {
+  VIEW
+  EDIT
+}
+
+enum CatalogView {
+  GRID
+  LIST
+  TABLE
+}
+
+enum CatalogSort {
+  UPDATED_AT
+  NAME
+  QUANTITY
+  MIN_LEVEL
+  PRICE
+  TOTAL_VALUE
+  DESCRIPTION
+}
+
+enum SortDir {
+  ASC
+  DESC
+}
+
+enum ThemePref {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
+enum UnitType {
+  COUNT
+  WEIGHT
+  LENGTH
+  VOLUME
+}
+
+enum CustomFieldType {
+  SMALL_TEXT
+  LARGE_TEXT
+  WHOLE_NUMBER
+  DECIMAL
+  CHECKBOX
+  DROPDOWN
+  DATE
+  SCANNER
+  PHONE
+  WEB_LINK
+  EMAIL
+  FILE
+}
+
+enum AppliesTo {
+  ITEM
+  FOLDER
+  BOTH
+}
+
+enum OwnerType {
+  ITEM
+  FOLDER
+}
+
+enum FolderKind {
+  ITEM
+  JOB
+}
+
+enum JobStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum BarcodeSymbology {
+  QR
+  CODE128
+  CODE39
+  EAN13
+  EAN8
+  UPCE
+  CODE93
+  I25
+  PDF417
+  AZTEC
+  DATAMATRIX
+}
+
+enum ReasonKind {
+  QUANTITY
+  MOVE
+}
+
+enum TransactionType {
+  ITEM_CREATED
+  ITEM_DELETED
+  ITEM_RESTORED
+  ITEM_EDITED
+  FOLDER_CREATED
+  FOLDER_DELETED
+  FOLDER_RESTORED
+  FOLDER_EDITED
+  QTY_ADD
+  QTY_SUBTRACT
+  QTY_SET
+  MOVE
+  MERGE
+  CLONE
+  BULK_EDIT
+}
+
+enum AlertKind {
+  QUANTITY
+  DATE
+}
+
+enum QtyComparator {
+  AT_OR_BELOW_MIN
+  BELOW_MIN
+  ABOVE_MIN
+  GREATER_THAN
+  WITH_MIN_SET
+  WITHOUT_MIN_SET
+}
+
+enum DateWhen {
+  BEFORE
+  ON
+  AFTER
+}
+
+enum DateOffsetUnit {
+  DAYS
+  WEEKS
+  MONTHS
+  YEARS
+}
+
+enum AlertRecipientKind {
+  SELF
+  SUPER_ADMINS
+  ADMINS
+  TEAM_MEMBERS
+  CUSTOM_ROLES
+  PEOPLE
+}
+
+enum PickListStatus {
+  DRAFT
+  READY_TO_PICK
+  IN_PROGRESS
+  PARTIALLY_COMPLETE
+  COMPLETE
+}
+
+enum PickItemOutcome {
+  CONSUMED
+  RETURNED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  APPROVED
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  VOIDED
+  CLOSED
+}
+
+enum StockCountStatus {
+  DRAFT
+  READY_TO_COUNT
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETE
+  VOIDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  OVERDUE
+  PAID
+}
+
+model Organization {
+  id                      String    @id @default(uuid())
+  name                    String
+  industry                String?
+  logoKey                 String?
+  accentColor             String    @default("#2E8B57")
+  initials                String    @default("PW")
+  country                 String    @default("GB")
+  currency                String    @default("GBP")
+  timezone                String    @default("Europe/London")
+  dateFormat              String    @default("dd/MM/yyyy")
+  returnToOriginEnabled   Boolean   @default(false)
+  requireQtyReason        Boolean   @default(false)
+  requireMoveReason       Boolean   @default(false)
+  jobDefaultSubfolders    Json      @default("[]")
+  jobExtraFieldIds        Json      @default("[]")
+  setupCompletedAt        DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  users             User[]
+  roles             Role[]
+  folders           Folder[]
+  items             Item[]
+  units             Unit[]
+  tags              Tag[]
+  customFields      CustomField[]
+  reasons           TransactionReason[]
+  transactions      InventoryTransaction[]
+  alerts            Alert[]
+  notifications     Notification[]
+  invites           Invite[]
+  sessions          Session[]
+  sharedFiles       SharedFile[]
+  jobs              Job[]
+  savedLabels       SavedLabel[]
+  pickLists         PickList[]
+  purchaseOrders    PurchaseOrder[]
+  stockCounts       StockCount[]
+  invoices          Invoice[]
+}
+
+model Role {
+  id             String   @id @default(uuid())
+  organizationId String
+  kind           RoleKind
+  name           String
+  permissions    Json     @default("{}")
+  hidePrices     Boolean  @default(false)
+  isSystem       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users        User[]
+
+  @@unique([organizationId, name])
+}
+
+model User {
+  id             String      @id @default(uuid())
+  organizationId String
+  email          String
+  passwordHash   String?
+  firstName      String
+  lastName       String
+  jobFunction    String?
+  jobTitle       String?
+  phone          String?
+  roleId         String
+  status         UserStatus  @default(PENDING)
+  lastLoginAt    DateTime?
+  timezoneAuto   Boolean     @default(true)
+  timezone       String?
+  defaultView    CatalogView @default(GRID)
+  defaultSort    CatalogSort @default(UPDATED_AT)
+  sortDirection  SortDir     @default(DESC)
+  emailAlerts    Boolean     @default(true)
+  poEmails       Boolean     @default(true)
+  theme          ThemePref   @default(SYSTEM)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+  folderAcls   FolderAcl[]
+  sessions     Session[]
+  invitesSent  Invite[]     @relation("InvitedBy")
+  transactions InventoryTransaction[]
+  notifications Notification[]
+  createdItems Item[]       @relation("ItemCreatedBy")
+  createdFolders Folder[]   @relation("FolderCreatedBy")
+  jobsCreated  Job[]        @relation("JobCreatedBy")
+  savedLabels  SavedLabel[] @relation("SavedLabelCreatedBy")
+  pickListsAssigned PickList[] @relation("PickListAssignedTo")
+  pickListsCreated  PickList[] @relation("PickListCreatedBy")
+  purchaseOrdersCreated   PurchaseOrder[] @relation("POCreatedBy")
+  purchaseOrdersSubmitted PurchaseOrder[] @relation("POSubmittedBy")
+  stockCountsAssigned StockCount[] @relation("StockCountAssignedTo")
+  stockCountsCreated  StockCount[] @relation("StockCountCreatedBy")
+  invoicesCreated Invoice[] @relation("InvoiceCreatedBy")
+
+  @@unique([organizationId, email])
+  @@index([email])
+}
+
+model FolderAcl {
+  id       String      @id @default(uuid())
+  userId   String
+  folderId String
+  grant    FolderGrant
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, folderId])
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  token          String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  userAgent      String?
+  ip             String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Invite {
+  id             String    @id @default(uuid())
+  organizationId String
+  email          String
+  firstName      String?
+  lastName       String?
+  roleId         String
+  token          String    @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  invitedById    String
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([email])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Unit {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  abbreviation   String
+  type           UnitType
+  isDefault      Boolean  @default(false)
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        Item[]
+
+  @@unique([organizationId, name])
+}
+
+model Folder {
+  id             String      @id @default(uuid())
+  organizationId String
+  parentId       String?
+  sid            String
+  name           String
+  notes          String?
+  kind           FolderKind  @default(ITEM)
+  jobStatus      JobStatus?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+  deletedReason  String?
+  deletedNote    String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Folder?      @relation("FolderTree", fields: [parentId], references: [id])
+  children     Folder[]     @relation("FolderTree")
+  items        Item[]
+  createdBy    User?        @relation("FolderCreatedBy", fields: [createdById], references: [id])
+  acls         FolderAcl[]
+  photos       Photo[]      @relation("FolderPhotos")
+  barcodes     Barcode[]    @relation("FolderBarcodes")
+  tags         FolderTag[]
+  customValues CustomFieldValue[] @relation("FolderFieldValues")
+  originItems  Item[]       @relation("ItemOrigin")
+  txFrom       InventoryTransaction[] @relation("TxnFromFolder")
+  txTo         InventoryTransaction[] @relation("TxnToFolder")
+  txFolder     InventoryTransaction[] @relation("TxnFolder")
+  job          Job?
+  savedLabels  SavedLabel[]
+
+  @@index([organizationId, parentId])
+  @@index([organizationId, sid])
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, kind, jobStatus])
+}
+
+model Job {
+  id             String    @id @default(uuid())
+  organizationId String
+  folderId       String    @unique
+  number         String
+  startDate      DateTime?
+  endDate        DateTime?
+  notes          String?
+  externalLink   String?
+  status         JobStatus @default(NOT_STARTED)
+  completedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  folder       Folder       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("JobCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([organizationId, updatedAt])
+}
+
+model Item {
+  id              String    @id @default(uuid())
+  organizationId  String
+  folderId        String
+  sid             String
+  name            String
+  quantity        Decimal   @db.Decimal(18, 4)
+  unitId          String
+  minQuantity     Decimal?  @db.Decimal(18, 4)
+  price           Decimal?  @db.Decimal(12, 2)
+  notes           String?
+  productLink     String?
+  lastFromFolderId String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  deletedReason   String?
+  deletedNote     String?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  folder         Folder       @relation(fields: [folderId], references: [id])
+  unit           Unit         @relation(fields: [unitId], references: [id])
+  lastFromFolder Folder?      @relation("ItemOrigin", fields: [lastFromFolderId], references: [id])
+  createdBy      User?        @relation("ItemCreatedBy", fields: [createdById], references: [id])
+  photos         Photo[]      @relation("ItemPhotos")
+  barcodes       Barcode[]    @relation("ItemBarcodes")
+  tags           ItemTag[]
+  customValues   CustomFieldValue[] @relation("ItemFieldValues")
+  transactions   InventoryTransaction[]
+  alerts         Alert[]
+  savedLabels    SavedLabel[]
+  pickListLines  PickListLine[]
+  purchaseOrderLines PurchaseOrderLine[]
+  stockCountLines StockCountLine[]
+  invoiceLines   InvoiceLine[]
+
+  @@index([organizationId, folderId])
+  @@index([organizationId, sid])
+  @@index([organizationId, name])
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, updatedAt])
+}
+
+model Tag {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        ItemTag[]
+  folders      FolderTag[]
+
+  @@unique([organizationId, name])
+}
+
+model ItemTag {
+  itemId String
+  tagId  String
+  item   Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+}
+
+model FolderTag {
+  folderId String
+  tagId    String
+  folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([folderId, tagId])
+}
+
+model Photo {
+  id        String    @id @default(uuid())
+  ownerType OwnerType
+  itemId    String?
+  folderId  String?
+  sortOrder Int
+  storageKey String
+  publicUrl  String?
+  mimeType  String?
+  createdAt DateTime  @default(now())
+
+  item   Item?   @relation("ItemPhotos", fields: [itemId], references: [id], onDelete: Cascade)
+  folder Folder? @relation("FolderPhotos", fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, sortOrder])
+  @@index([folderId, sortOrder])
+}
+
+model Barcode {
+  id         String           @id @default(uuid())
+  ownerType  OwnerType
+  itemId     String?
+  folderId   String?
+  slot       Int              @default(1)
+  value      String
+  symbology  BarcodeSymbology @default(QR)
+  createdAt  DateTime         @default(now())
+
+  item   Item?   @relation("ItemBarcodes", fields: [itemId], references: [id], onDelete: Cascade)
+  folder Folder? @relation("FolderBarcodes", fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([value])
+  @@index([itemId])
+  @@index([folderId])
+}
+
+model CustomField {
+  id             String          @id @default(uuid())
+  organizationId String
+  name           String
+  type           CustomFieldType
+  appliesTo      AppliesTo
+  placeholder    String?
+  defaultValue   String?
+  options        Json?
+  listVisible    Boolean         @default(false)
+  maxLength      Int?
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  values       CustomFieldValue[]
+
+  @@unique([organizationId, name])
+}
+
+model CustomFieldValue {
+  id        String    @id @default(uuid())
+  fieldId   String
+  ownerType OwnerType
+  itemId    String?
+  folderId  String?
+  valueText String?
+  valueDate DateTime? @db.Date
+  valueNum  Decimal?  @db.Decimal(20, 5)
+  valueBool Boolean?
+
+  field  CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  item   Item?       @relation("ItemFieldValues", fields: [itemId], references: [id], onDelete: Cascade)
+  folder Folder?     @relation("FolderFieldValues", fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, itemId])
+  @@unique([fieldId, folderId])
+}
+
+model TransactionReason {
+  id             String     @id @default(uuid())
+  organizationId String
+  kind           ReasonKind
+  name           String
+  isDefault      Boolean    @default(false)
+  isVisible      Boolean    @default(true)
+  isSystem       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind, name])
+}
+
+model InventoryTransaction {
+  id             String          @id @default(uuid())
+  organizationId String
+  type           TransactionType
+  itemId         String?
+  folderId       String?
+  fromFolderId   String?
+  toFolderId     String?
+  qtyBefore      Decimal?        @db.Decimal(18, 4)
+  qtyAfter       Decimal?        @db.Decimal(18, 4)
+  qtyDelta       Decimal?        @db.Decimal(18, 4)
+  reason         String?
+  note           String?
+  userId         String?
+  batchId        String?
+  payload        Json?
+  createdAt      DateTime        @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item         Item?        @relation(fields: [itemId], references: [id])
+  folder       Folder?      @relation("TxnFolder", fields: [folderId], references: [id])
+  fromFolder   Folder?      @relation("TxnFromFolder", fields: [fromFolderId], references: [id])
+  toFolder     Folder?      @relation("TxnToFolder", fields: [toFolderId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([itemId, createdAt])
+  @@index([folderId, createdAt])
+  @@index([userId, createdAt])
+  @@index([batchId])
+}
+
+model Alert {
+  id             String              @id @default(uuid())
+  organizationId String
+  kind           AlertKind
+  itemId         String?
+  folderId       String?
+  fieldId        String?
+  qtyComparator  QtyComparator?
+  dateWhen       DateWhen?
+  dateOffset     Int?
+  dateOffsetUnit DateOffsetUnit?
+  recipientKind  AlertRecipientKind  @default(SELF)
+  recipientIds   String[]            @default([])
+  createdById    String?
+  lastTriggeredAt DateTime?
+  createdAt      DateTime            @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item         Item?        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+}
+
+model Notification {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String
+  alertId        String?
+  title          String
+  body           String
+  itemId         String?
+  folderId       String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alert        Alert?       @relation(fields: [alertId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model UnlinkedLabel {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  value          String   @unique
+  symbology      BarcodeSymbology @default(QR)
+  createdAt      DateTime @default(now())
+  linkedAt       DateTime?
+  linkedItemId   String?
+}
+
+model SavedLabel {
+  id             String   @id @default(uuid())
+  organizationId String
+  createdById    String?
+  itemId         String?
+  folderId       String?
+  name           String
+  codeValue      String
+  kind           String
+  sizeId         String
+  config         Json
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("SavedLabelCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  item         Item?        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  folder       Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, itemId])
+  @@index([organizationId, folderId])
+  @@index([organizationId, createdAt])
+}
+
+model SharedFile {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  kind           String
+  storageKey     String
+  publicUrl      String?
+  mimeType       String?
+  sizeBytes      Int?
+  shareToken     String   @unique
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model PickList {
+  id             String          @id @default(uuid())
+  organizationId String
+  number         String
+  status         PickListStatus  @default(DRAFT)
+  assignedToId   String?
+  dueDate        DateTime?
+  itemOutcome    PickItemOutcome?
+  shipTo         Json?
+  notes          String?
+  assignedAt     DateTime?
+  pickedAt       DateTime?
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedTo   User?        @relation("PickListAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("PickListCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines        PickListLine[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([organizationId, updatedAt])
+}
+
+model PickListLine {
+  id             String  @id @default(uuid())
+  pickListId     String
+  itemId         String
+  quantityToPick Decimal @db.Decimal(18, 4)
+  quantityPicked Decimal @default(0) @db.Decimal(18, 4)
+  sortOrder      Int     @default(0)
+
+  pickList PickList @relation(fields: [pickListId], references: [id], onDelete: Cascade)
+  item     Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([pickListId])
+}
+
+model PurchaseOrder {
+  id             String              @id @default(uuid())
+  organizationId String
+  number         String
+  status         PurchaseOrderStatus @default(DRAFT)
+  vendorName     String?
+  shipTo         Json?
+  billTo         Json?
+  notes          String?
+  dateOrdered    DateTime?
+  dateExpected   DateTime?
+  dateReceived   DateTime?
+  subtotal       Decimal             @default(0) @db.Decimal(14, 2)
+  total          Decimal             @default(0) @db.Decimal(14, 2)
+  version        Int                 @default(1)
+  createdById    String?
+  submittedById  String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("POCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  submittedBy  User?        @relation("POSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  lines        PurchaseOrderLine[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([organizationId, updatedAt])
+}
+
+model PurchaseOrderLine {
+  id                String  @id @default(uuid())
+  purchaseOrderId   String
+  itemId            String
+  quantity          Decimal @db.Decimal(18, 4)
+  quantityReceived  Decimal @default(0) @db.Decimal(18, 4)
+  unitCost          Decimal? @db.Decimal(12, 2)
+  expectedDate      DateTime?
+  sortOrder         Int     @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  item          Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+}
+
+model StockCount {
+  id             String           @id @default(uuid())
+  organizationId String
+  number         String
+  status         StockCountStatus @default(DRAFT)
+  assignedToId   String?
+  dueDate        DateTime?
+  startedAt      DateTime?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedTo   User?        @relation("StockCountAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("StockCountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines        StockCountLine[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([organizationId, updatedAt])
+}
+
+model StockCountLine {
+  id           String   @id @default(uuid())
+  stockCountId String
+  itemId       String
+  expectedQty  Decimal? @db.Decimal(18, 4)
+  countedQty   Decimal? @db.Decimal(18, 4)
+  variance     Decimal? @db.Decimal(18, 4)
+  notes        String?
+  locked       Boolean  @default(false)
+  sortOrder    Int      @default(0)
+
+  stockCount StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  item       Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([stockCountId])
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  organizationId String
+  number         String
+  status         InvoiceStatus @default(DRAFT)
+  customerName   String?
+  customerEmail  String?
+  dateIssued     DateTime?
+  dateDue        DateTime?
+  subtotal       Decimal       @default(0) @db.Decimal(14, 2)
+  total          Decimal       @default(0) @db.Decimal(14, 2)
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines        InvoiceLine[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([organizationId, updatedAt])
+}
+
+model InvoiceLine {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  itemId      String?
+  description String?
+  quantity    Decimal @db.Decimal(18, 4)
+  unitRate    Decimal @default(0) @db.Decimal(12, 2)
+  amount      Decimal @default(0) @db.Decimal(14, 2)
+  sortOrder   Int     @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item    Item?   @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+}
+
