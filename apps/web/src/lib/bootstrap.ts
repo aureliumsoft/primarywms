@@ -23,130 +23,120 @@ export async function runSetup(input: SetupInput) {
   const passwordHash = await hashPassword(input.password);
   const accent = input.accentColor || DEFAULT_ACCENT;
 
-  return prisma.$transaction(async (tx) => {
-    const org = existing
-      ? await tx.organization.update({
-          where: { id: existing.id },
-          data: {
-            name: input.companyName,
-            initials: input.initials,
-            accentColor: accent,
-            industry: input.industry,
-            country: DEFAULT_COUNTRY,
-            currency: DEFAULT_CURRENCY,
-            timezone: DEFAULT_TIMEZONE,
-            dateFormat: DEFAULT_DATE_FORMAT,
-            setupCompletedAt: new Date(),
-          },
-        })
-      : await tx.organization.create({
-          data: {
-            name: input.companyName,
-            initials: input.initials,
-            accentColor: accent,
-            industry: input.industry,
-            country: DEFAULT_COUNTRY,
-            currency: DEFAULT_CURRENCY,
-            timezone: DEFAULT_TIMEZONE,
-            dateFormat: DEFAULT_DATE_FORMAT,
-            setupCompletedAt: new Date(),
-          },
-        });
-
-    const roleData: { kind: "SUPER_ADMIN" | "ADMIN" | "TEAM_MEMBER" | "SCANNER"; name: string }[] = [
-      { kind: "SUPER_ADMIN", name: "Owners" },
-      { kind: "ADMIN", name: "Admins" },
-      { kind: "TEAM_MEMBER", name: "Team Members" },
-      { kind: "SCANNER", name: "Scanner" },
-    ];
-
-    const roles = [];
-    for (const role of roleData) {
-      roles.push(
-        await tx.role.create({
-          data: {
-            organizationId: org.id,
-            kind: role.kind,
-            name: role.name,
-            isSystem: true,
-            permissions: ROLE_DEFAULTS[role.kind] as Prisma.InputJsonValue,
-          },
-        }),
-      );
-    }
-    const superAdminRole = roles.find((r) => r.kind === "SUPER_ADMIN")!;
-
-    const user = await tx.user.create({
-      data: {
-        organizationId: org.id,
-        email: input.email.toLowerCase().trim(),
-        passwordHash,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        roleId: superAdminRole.id,
-        status: "ACTIVE",
-      },
-    });
-
-    await tx.folder.create({
-      data: {
-        organizationId: org.id,
-        parentId: null,
-        sid: generateSid(),
-        name: ALL_ITEMS_NAME,
-        createdById: user.id,
-      },
-    });
-
-    for (const unit of SYSTEM_UNITS) {
-      await tx.unit.create({
+  // Sequential writes (no interactive transaction) so setup works on pooled Prisma Postgres.
+  const org = existing
+    ? await prisma.organization.update({
+        where: { id: existing.id },
         data: {
-          organizationId: org.id,
-          name: unit.name,
-          abbreviation: unit.abbreviation,
-          type: unit.type,
-          isDefault: unit.isDefault,
-          isSystem: unit.isSystem,
+          name: input.companyName,
+          initials: input.initials,
+          accentColor: accent,
+          industry: input.industry,
+          country: DEFAULT_COUNTRY,
+          currency: DEFAULT_CURRENCY,
+          timezone: DEFAULT_TIMEZONE,
+          dateFormat: DEFAULT_DATE_FORMAT,
+          setupCompletedAt: new Date(),
+        },
+      })
+    : await prisma.organization.create({
+        data: {
+          name: input.companyName,
+          initials: input.initials,
+          accentColor: accent,
+          industry: input.industry,
+          country: DEFAULT_COUNTRY,
+          currency: DEFAULT_CURRENCY,
+          timezone: DEFAULT_TIMEZONE,
+          dateFormat: DEFAULT_DATE_FORMAT,
+          setupCompletedAt: new Date(),
         },
       });
-    }
 
-    for (const [index, field] of SYSTEM_CUSTOM_FIELDS.entries()) {
-      await tx.customField.create({
+  const roleData: { kind: "SUPER_ADMIN" | "ADMIN" | "TEAM_MEMBER" | "SCANNER"; name: string }[] = [
+    { kind: "SUPER_ADMIN", name: "Owners" },
+    { kind: "ADMIN", name: "Admins" },
+    { kind: "TEAM_MEMBER", name: "Team Members" },
+    { kind: "SCANNER", name: "Scanner" },
+  ];
+
+  const roles = await Promise.all(
+    roleData.map((role) =>
+      prisma.role.create({
         data: {
           organizationId: org.id,
-          name: field.name,
-          type: field.type,
-          appliesTo: field.appliesTo,
-          sortOrder: index,
-          maxLength: field.type === "LARGE_TEXT" ? 4000 : field.type === "DATE" ? null : 190,
-        },
-      });
-    }
-
-    for (const name of QTY_REASONS) {
-      await tx.transactionReason.create({
-        data: {
-          organizationId: org.id,
-          kind: "QUANTITY",
-          name,
-          isDefault: name === "Inventory Count Adjustment",
+          kind: role.kind,
+          name: role.name,
           isSystem: true,
+          permissions: ROLE_DEFAULTS[role.kind] as Prisma.InputJsonValue,
         },
-      });
-    }
-    for (const name of MOVE_REASONS) {
-      await tx.transactionReason.create({
-        data: {
-          organizationId: org.id,
-          kind: "MOVE",
-          name,
-          isDefault: name === "Other",
-          isSystem: true,
-        },
-      });
-    }
+      }),
+    ),
+  );
+  const superAdminRole = roles.find((r) => r.kind === "SUPER_ADMIN")!;
 
-    return { org, user };
+  const user = await prisma.user.create({
+    data: {
+      organizationId: org.id,
+      email: input.email.toLowerCase().trim(),
+      passwordHash,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      roleId: superAdminRole.id,
+      status: "ACTIVE",
+    },
   });
+
+  await prisma.folder.create({
+    data: {
+      organizationId: org.id,
+      parentId: null,
+      sid: generateSid(),
+      name: ALL_ITEMS_NAME,
+      createdById: user.id,
+    },
+  });
+
+  await prisma.unit.createMany({
+    data: SYSTEM_UNITS.map((unit) => ({
+      organizationId: org.id,
+      name: unit.name,
+      abbreviation: unit.abbreviation,
+      type: unit.type,
+      isDefault: unit.isDefault,
+      isSystem: unit.isSystem,
+    })),
+  });
+
+  await prisma.customField.createMany({
+    data: SYSTEM_CUSTOM_FIELDS.map((field, index) => ({
+      organizationId: org.id,
+      name: field.name,
+      type: field.type,
+      appliesTo: field.appliesTo,
+      sortOrder: index,
+      maxLength: field.type === "LARGE_TEXT" ? 4000 : field.type === "DATE" ? null : 190,
+    })),
+  });
+
+  await prisma.transactionReason.createMany({
+    data: [
+      ...QTY_REASONS.map((name) => ({
+        organizationId: org.id,
+        kind: "QUANTITY" as const,
+        name,
+        isDefault: name === "Inventory Count Adjustment",
+        isSystem: true,
+      })),
+      ...MOVE_REASONS.map((name) => ({
+        organizationId: org.id,
+        kind: "MOVE" as const,
+        name,
+        isDefault: name === "Other",
+        isSystem: true,
+      })),
+    ],
+  });
+
+  return { org, user };
 }
