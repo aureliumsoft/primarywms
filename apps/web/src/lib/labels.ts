@@ -42,13 +42,28 @@ export async function listUnlinkedLabels(user: AuthUser) {
   });
 }
 
-export async function emailLabelCopy(user: AuthUser, to: string, summary: string) {
+export async function emailLabelCopy(
+  user: AuthUser,
+  to: string,
+  summary: string,
+  pdfBase64?: string,
+) {
   const email = to.trim();
   if (!email || !email.includes("@")) throw new Error("Enter a valid email");
+  const attachments = pdfBase64
+    ? [
+        {
+          filename: "labels.pdf",
+          content: Buffer.from(pdfBase64, "base64"),
+          contentType: "application/pdf",
+        },
+      ]
+    : undefined;
   await sendMail(
     email,
     `Your Primary WMS labels`,
-    `Hi ${user.firstName || "there"},\n\nYour labels are ready. Print at 100% / actual size from the browser print dialog (or Save as PDF).\n\n${summary}\n\nReprinting does not change the stored QR or barcode value.`,
+    `Hi ${user.firstName || "there"},\n\nYour label PDF is attached. Print at 100% / actual size (turn off Fit to page).\n\n${summary}\n\nReprinting does not change the stored QR or barcode value.`,
+    attachments,
   );
 }
 

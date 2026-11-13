@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/lib/api";
-import { printLabels } from "@/lib/label-print";
+import { buildLabelPdf, openPdfBytes } from "@/lib/label-pdf";
 import { getLabelSize } from "@/lib/label-sizes";
 import { CreateLabelWizard } from "@/components/CreateLabelWizard";
 import { BarcodeMark } from "@/components/BarcodeMark";
@@ -45,7 +45,7 @@ export default function CreateLabelsPage() {
     setReprinting(row.id);
     setError("");
     try {
-      await printLabels({
+      const bytes = await buildLabelPdf({
         size,
         kind: "QR",
         copies: [{ name: row.name, value: row.value }],
@@ -53,7 +53,10 @@ export default function CreateLabelsPage() {
         instructions: false,
         includePhoto: false,
         includeLogo: false,
+        includeDetails: false,
+        includeNote: false,
       });
+      openPdfBytes(bytes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reprint label");
     } finally {

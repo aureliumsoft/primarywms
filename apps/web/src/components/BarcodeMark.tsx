@@ -10,12 +10,15 @@ export function BarcodeMark({
   symbology,
   className,
   height = 56,
+  /** Pixel size for QR marks. Defaults to 88 when omitted. */
+  size,
   showValue = true,
 }: {
   value: string;
   symbology: string;
   className?: string;
   height?: number;
+  size?: number;
   showValue?: boolean;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -56,7 +59,7 @@ export function BarcodeMark({
           displayValue: showValue,
           fontSize: 12,
           height,
-          margin: 4,
+          margin: showValue ? 4 : 0,
           lineColor: "#2a3a33",
           background: "#ffffff",
           valid(ok) {
@@ -77,16 +80,21 @@ export function BarcodeMark({
     return <p className="text-[12px] text-[#e24b4b]">{error}</p>;
   }
   if (isQr) {
+    const side = Math.max(32, size ?? 88);
     return (
       <div className={cn("flex flex-col items-center gap-1", className)}>
-        <div className="h-[88px] w-[88px] text-[#2a3a33]" dangerouslySetInnerHTML={{ __html: qr }} />
+        <div
+          className="text-[#2a3a33] [&_svg]:h-full [&_svg]:w-full"
+          style={{ width: side, height: side }}
+          dangerouslySetInnerHTML={{ __html: qr }}
+        />
         {showValue ? <span className="font-mono text-[11px] tracking-wide text-[#4a5c54]">{value}</span> : null}
       </div>
     );
   }
   return (
-    <div className={cn("flex flex-col items-center", className)}>
-      <svg ref={svgRef} />
+    <div className={cn("flex w-full flex-col items-center overflow-hidden", className)}>
+      <svg ref={svgRef} className="max-w-full" style={{ height, width: "auto", maxWidth: "100%" }} />
     </div>
   );
 }

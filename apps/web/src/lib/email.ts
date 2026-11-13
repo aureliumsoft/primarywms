@@ -1,9 +1,23 @@
 import { APP_NAME } from "@primarywms/shared";
 import nodemailer from "nodemailer";
 
-export async function sendMail(to: string, subject: string, text: string) {
+export type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
+export async function sendMail(
+  to: string,
+  subject: string,
+  text: string,
+  attachments?: MailAttachment[],
+) {
   if (!process.env.SMTP_HOST) {
     console.log(`[email] to=${to} subject=${subject}\n${text}`);
+    if (attachments?.length) {
+      console.log(`[email] attachments=${attachments.map((a) => `${a.filename} (${a.content.length} bytes)`).join(", ")}`);
+    }
     return;
   }
   const transporter = nodemailer.createTransport({
@@ -19,6 +33,11 @@ export async function sendMail(to: string, subject: string, text: string) {
     to,
     subject,
     text,
+    attachments: attachments?.map((row) => ({
+      filename: row.filename,
+      content: row.content,
+      contentType: row.contentType,
+    })),
   });
 }
 
